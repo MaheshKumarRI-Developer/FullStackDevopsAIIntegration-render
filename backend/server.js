@@ -99,6 +99,33 @@ app.post('/api/chat/mock', (req, res) => {
   res.json({ answer: canned, mock: true });
 });
 
+// Endpoint to ingest raw text/knowledge directly into the Qdrant vector database
+app.post("/api/knowledge", async (req, res) => {
+  const { id, text, payload, collectionName } = req.body;
+
+  if (id === undefined || !text) {
+    return res.status(400).json({ error: "id and text are required in the request body." });
+  }
+
+  try {
+    const { upsertDocument } = require("./src/ai/retrieval/retrieval.service");
+    const result = await upsertDocument({
+      id: Number(id),
+      text,
+      payload: payload || {},
+      collectionName,
+    });
+    res.json({ success: true, result });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: "Failed to import knowledge to Qdrant database.",
+      details: error.message,
+    });
+  }
+});
+
+
 async function runStructuredAi(messages, schema) {
   const result = await groqProvider.createChatCompletion(messages, {
     temperature: 0.2,

@@ -1,0 +1,4 @@
+# Backend .gitignore for Fruit App
+node_modules/
+.env
+*.log

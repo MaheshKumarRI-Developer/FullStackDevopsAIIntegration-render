@@ -1,0 +1,9 @@
+# Backend .dockerignore
+node_modules
+.env
+.gitignore
+.dockerignore
+Dockerfile
+npm-debug.log*
+.vscode
+.idea

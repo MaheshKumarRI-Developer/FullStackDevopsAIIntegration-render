@@ -1,0 +1,11 @@
+# Frontend .dockerignore
+node_modules
+dist
+dist-ssr
+.gitignore
+.dockerignore
+Dockerfile
+README.md
+npm-debug.log*
+.vscode
+.idea

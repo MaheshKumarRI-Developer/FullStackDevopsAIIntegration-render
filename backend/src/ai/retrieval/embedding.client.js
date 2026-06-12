@@ -1,6 +1,6 @@
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const EMBEDDING_URL = process.env.EMBEDDING_URL;
-const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || "text-embedding-3-small";
+const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || "BAAI/bge-small-en-v1.5";
+const HF_API_TOKEN = process.env.HF_API_TOKEN || "";
 
 function normalizeEmbeddingUrl(url) {
   if (!url) {
@@ -15,6 +15,7 @@ function normalizeEmbeddingUrl(url) {
 }
 
 async function createEmbedding(text) {
+  // Option 1: Use custom Python embedding service if EMBEDDING_URL is set
   if (EMBEDDING_URL) {
     const url = normalizeEmbeddingUrl(EMBEDDING_URL);
     const response = await fetch(url, {
@@ -35,34 +36,43 @@ async function createEmbedding(text) {
     return data.embedding;
   }
 
-  if (!GROQ_API_KEY) {
-    throw new Error("Missing GROQ_API_KEY environment variable for embedding generation.");
+  // Option 2: Use HuggingFace Inference API (free for public models like bge-small-en-v1.5)
+  const hfUrl = `https://api-inference.huggingface.co/pipeline/feature-extraction/${EMBEDDING_MODEL}`;
+  const headers = {
+    "Content-Type": "application/json",
+  };
+
+  if (HF_API_TOKEN) {
+    headers["Authorization"] = `Bearer ${HF_API_TOKEN}`;
   }
 
-  const response = await fetch("https://api.groq.com/openai/v1/embeddings", {
+  const response = await fetch(hfUrl, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${GROQ_API_KEY}`,
-    },
+    headers,
     body: JSON.stringify({
-      model: EMBEDDING_MODEL,
-      input: text,
+      inputs: text,
+      options: { wait_for_model: true },
     }),
   });
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(`GROQ embeddings error: ${response.status} ${response.statusText} - ${errorBody}`);
+    throw new Error(`HuggingFace embeddings error: ${response.status} ${response.statusText} - ${errorBody}`);
   }
 
   const data = await response.json();
 
-  if (!data.data || !Array.isArray(data.data) || !data.data[0]?.embedding) {
-    throw new Error("Invalid embedding response format from Groq.");
+  // HF returns a nested array for single input: [[0.1, 0.2, ...]]
+  if (Array.isArray(data) && Array.isArray(data[0])) {
+    return data[0];
   }
 
-  return data.data[0].embedding;
+  // Direct array response
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  throw new Error("Invalid embedding response format from HuggingFace.");
 }
 
 module.exports = {
@@ -70,3 +80,4 @@ module.exports = {
   EMBEDDING_MODEL,
   createEmbedding,
 };
+

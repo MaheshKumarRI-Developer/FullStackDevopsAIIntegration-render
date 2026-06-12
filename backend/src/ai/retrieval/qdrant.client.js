@@ -1,18 +1,26 @@
 const QDRANT_URL = process.env.QDRANT_URL || "http://localhost:6333";
+const QDRANT_API_KEY = process.env.QDRANT_API_KEY || "";
 
 async function qdrantRequest(path, options = {}) {
   let response;
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options.headers || {}),
+  };
+
+  if (QDRANT_API_KEY) {
+    headers["api-key"] = QDRANT_API_KEY;
+  }
+
   try {
     response = await fetch(`${QDRANT_URL}${path}`, {
       ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers || {}),
-      },
+      headers,
     });
   } catch (err) {
     throw new Error(`Qdrant connection failed at ${QDRANT_URL}${path}: ${err.message}`);
   }
+
 
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;

@@ -10,7 +10,7 @@ import {
 
 const filters = ['All', 'High', 'Low']
 const sortOptions = ['Latest', 'Severity']
-const API_URL = import.meta.env.VITE_API_URL || 'https://mern-vmd.onrender.com/api/data'
+const API_URL = import.meta.env.VITE_API_URL || 'https://fullstackdevopsaiintegration-render-1.onrender.com'
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
 const sampleCve = {
   cveId: 'CVE-2024-3094',
@@ -189,11 +189,10 @@ function App() {
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <span
-                className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                  aiHealth?.configured
+                className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${aiHealth?.configured
                     ? 'bg-emerald-100 text-emerald-700'
                     : 'bg-amber-100 text-amber-700'
-                }`}
+                  }`}
               >
                 {aiHealth?.configured ? 'API key configured' : 'API key missing'}
               </span>
@@ -348,11 +347,10 @@ function App() {
                       key={option}
                       type="button"
                       onClick={() => setFilter(option)}
-                      className={`rounded-full border px-4 py-2 text-sm font-semibold transition duration-150 ${
-                        option === filter
+                      className={`rounded-full border px-4 py-2 text-sm font-semibold transition duration-150 ${option === filter
                           ? 'bg-slate-900 text-white border-slate-900'
                           : 'border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-100'
-                      }`}
+                        }`}
                     >
                       {option}
                     </button>
@@ -426,11 +424,10 @@ function App() {
                             <td className="px-6 py-4 text-sm text-slate-900">{item.issue}</td>
                             <td className="px-6 py-4 text-sm">
                               <span
-                                className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                                  item.severity === 'High'
+                                className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${item.severity === 'High'
                                     ? 'bg-rose-100 text-rose-700'
                                     : 'bg-emerald-100 text-emerald-700'
-                                }`}
+                                  }`}
                               >
                                 {item.severity}
                               </span>

@@ -1,4 +1,4 @@
-const EMBEDDING_URL = process.env.EMBEDDING_URL;
+const EMBEDDING_URL = process.env.EMBEDDING_URL || process.env.EMBEDDING_API_URL;
 const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || "BAAI/bge-small-en-v1.5";
 const HF_API_TOKEN = process.env.HF_API_TOKEN || "";
 

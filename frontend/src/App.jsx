@@ -8,10 +8,23 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 
+/** Safely coerce any value to an array */
+const toArray = (value) => (Array.isArray(value) ? value : [])
+
+/** Safely read a string property — never throws on undefined/null */
+const safeStr = (value) => (typeof value === 'string' ? value : '')
+
+/** Safely format a date — returns fallback for invalid values */
+const safeDate = (value) => {
+  if (!value) return '—'
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString()
+}
+
 const filters = ['All', 'High', 'Low']
 const sortOptions = ['Latest', 'Severity']
-const API_URL = import.meta.env.VITE_API_URL || 'https://fullstackdevopsaiintegration-render-1.onrender.com'
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
+const API_URL = import.meta.env.VITE_API_URL || ''
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || ''
 const sampleCve = {
   cveId: 'CVE-2024-3094',
   severity: 'High',
@@ -44,10 +57,27 @@ function App() {
     setError('')
 
     try {
-      const response = await axios.get(API_URL)
-      setData(response.data || [])
+      const response = await axios.get(API_URL, { timeout: 15000 })
+      const result = response.data
+      if (Array.isArray(result)) {
+        setData(result)
+      } else if (result && typeof result === 'object') {
+        // Handle wrapped responses like { vulnerabilities: [...] }
+        const nested = Object.values(result).find(Array.isArray)
+        setData(nested || [])
+      } else {
+        setData([])
+      }
     } catch (err) {
-      setError('Unable to load vulnerability data. Please try again.')
+      if (err.code === 'ECONNABORTED') {
+        setError('Request timed out. The server may be slow — retrying soon.')
+      } else if (err.response) {
+        setError(`Server error (${err.response.status}). Please try again.`)
+      } else if (err.request) {
+        setError('Network error — unable to reach the server.')
+      } else {
+        setError('Unable to load vulnerability data. Please try again.')
+      }
     } finally {
       setLoading(false)
     }
@@ -62,8 +92,8 @@ function App() {
   useEffect(() => {
     const checkAiHealth = async () => {
       try {
-        const response = await axios.get(`${BACKEND_URL}/api/ai/health`)
-        setAiHealth(response.data)
+        const response = await axios.get(`${BACKEND_URL}/api/ai/health`, { timeout: 10000 })
+        setAiHealth(response.data || { configured: false, provider: 'groq', model: 'unknown' })
       } catch (err) {
         setAiHealth({ configured: false, provider: 'groq', model: 'unknown' })
       }
@@ -80,10 +110,14 @@ function App() {
     try {
       const response = await axios.post(`${BACKEND_URL}/api/ai/orchestrate-cve`, {
         cveData: sampleCve,
-      })
+      }, { timeout: 30000 })
       setAiResult(response.data?.data || null)
     } catch (err) {
-      setAiError(err.response?.data?.error || err.message || 'AI check failed.')
+      if (err.code === 'ECONNABORTED') {
+        setAiError('AI request timed out. The model may be busy — try again.')
+      } else {
+        setAiError(err.response?.data?.error || err.message || 'AI check failed.')
+      }
     } finally {
       setAiLoading(false)
     }
@@ -102,20 +136,25 @@ function App() {
     try {
       const response = await axios.post(`${BACKEND_URL}/api/chat`, {
         question: chatQuestion.trim(),
-      })
+      }, { timeout: 30000 })
       setChatAnswer(response.data?.answer || 'No answer returned.')
     } catch (err) {
-      setChatError(err.response?.data?.error || err.message || 'Chat request failed.')
+      if (err.code === 'ECONNABORTED') {
+        setChatError('Chat request timed out. Please try again.')
+      } else {
+        setChatError(err.response?.data?.error || err.message || 'Chat request failed.')
+      }
     } finally {
       setChatLoading(false)
     }
   }
 
   const counts = useMemo(() => {
-    const high = data.filter((item) => item.severity === 'High').length
-    const low = data.filter((item) => item.severity === 'Low').length
+    const safeData = toArray(data)
+    const high = safeData.filter((item) => item?.severity === 'High').length
+    const low = safeData.filter((item) => item?.severity === 'Low').length
     return {
-      total: data.length,
+      total: safeData.length,
       high,
       low,
     }
@@ -132,8 +171,9 @@ function App() {
   const filteredData = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase()
 
-    return data
+    return toArray(data)
       .filter((item) => {
+        if (!item) return false
         if (filter === 'High') return item.severity === 'High'
         if (filter === 'Low') return item.severity === 'Low'
         return true
@@ -141,18 +181,18 @@ function App() {
       .filter((item) => {
         if (!normalizedSearch) return true
         return (
-          item.server.toLowerCase().includes(normalizedSearch) ||
-          item.code.toLowerCase().includes(normalizedSearch) ||
-          item.issue.toLowerCase().includes(normalizedSearch) ||
-          item.severity.toLowerCase().includes(normalizedSearch)
+          safeStr(item.server).toLowerCase().includes(normalizedSearch) ||
+          safeStr(item.code).toLowerCase().includes(normalizedSearch) ||
+          safeStr(item.issue).toLowerCase().includes(normalizedSearch) ||
+          safeStr(item.severity).toLowerCase().includes(normalizedSearch)
         )
       })
       .sort((a, b) => {
         if (sortOption === 'Severity') {
           const severityOrder = { High: 1, Low: 2 }
-          return severityOrder[a.severity] - severityOrder[b.severity]
+          return (severityOrder[a.severity] ?? 3) - (severityOrder[b.severity] ?? 3)
         }
-        return new Date(b.timestamp) - new Date(a.timestamp)
+        return new Date(b.timestamp || 0) - new Date(a.timestamp || 0)
       })
   }, [data, filter, searchTerm, sortOption])
 
@@ -286,7 +326,7 @@ function App() {
               <div className="rounded-3xl border border-slate-200 bg-white p-5 lg:col-span-2">
                 <p className="text-sm font-semibold text-slate-900">Immediate actions</p>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  {(aiResult.outputs?.summary?.immediateActions || aiResult.outputs?.remediation?.remediationSteps || []).map((step, index) => (
+                  {toArray(aiResult.outputs?.summary?.immediateActions || aiResult.outputs?.remediation?.remediationSteps).map((step, index) => (
                     <div key={`${step}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
                         Step {index + 1}
@@ -307,13 +347,13 @@ function App() {
               <div className="rounded-3xl border border-slate-200 bg-white p-5 lg:col-span-2">
                 <p className="text-sm font-semibold text-slate-900">Workflow steps</p>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  {aiResult.steps?.map((step) => (
-                    <div key={step.name} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  {toArray(aiResult.steps).map((step, index) => (
+                    <div key={step?.name || index} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
-                        {step.status}
+                        {step?.status || 'Unknown'}
                       </p>
-                      <p className="mt-2 text-sm font-semibold text-slate-900">{step.name}</p>
-                      {step.error && <p className="mt-2 text-sm leading-6 text-rose-700">{step.error}</p>}
+                      <p className="mt-2 text-sm font-semibold text-slate-900">{step?.name || 'Unnamed step'}</p>
+                      {step?.error && <p className="mt-2 text-sm leading-6 text-rose-700">{step.error}</p>}
                     </div>
                   ))}
                 </div>
@@ -418,22 +458,22 @@ function App() {
                         </tr>
                       ) : (
                         filteredData.map((item, index) => (
-                          <tr key={`${item.server}-${item.timestamp}-${index}`}>
-                            <td className="px-6 py-4 text-sm text-slate-900">{item.server}</td>
-                            <td className="px-6 py-4 text-sm text-slate-900">{item.code}</td>
-                            <td className="px-6 py-4 text-sm text-slate-900">{item.issue}</td>
+                          <tr key={`${safeStr(item?.server)}-${safeStr(item?.timestamp)}-${index}`}>
+                            <td className="px-6 py-4 text-sm text-slate-900">{item?.server || '—'}</td>
+                            <td className="px-6 py-4 text-sm text-slate-900">{item?.code || '—'}</td>
+                            <td className="px-6 py-4 text-sm text-slate-900">{item?.issue || '—'}</td>
                             <td className="px-6 py-4 text-sm">
                               <span
-                                className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${item.severity === 'High'
+                                className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${item?.severity === 'High'
                                     ? 'bg-rose-100 text-rose-700'
                                     : 'bg-emerald-100 text-emerald-700'
                                   }`}
                               >
-                                {item.severity}
+                                {item?.severity || 'Unknown'}
                               </span>
                             </td>
                             <td className="px-6 py-4 text-sm text-slate-500">
-                              {new Date(item.timestamp).toLocaleString()}
+                              {safeDate(item?.timestamp)}
                             </td>
                           </tr>
                         ))

@@ -57,7 +57,8 @@ function App() {
     setError('')
 
     try {
-      const response = await axios.get(API_URL, { timeout: 15000 })
+      const response = await axios.get(`${API_URL}/api/data`, { timeout: 15000 })
+      console.log("Documents found:", response);
       const result = response.data
       if (Array.isArray(result)) {
         setData(result)
@@ -230,8 +231,8 @@ function App() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <span
                 className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${aiHealth?.configured
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'bg-amber-100 text-amber-700'
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-amber-100 text-amber-700'
                   }`}
               >
                 {aiHealth?.configured ? 'API key configured' : 'API key missing'}
@@ -388,8 +389,8 @@ function App() {
                       type="button"
                       onClick={() => setFilter(option)}
                       className={`rounded-full border px-4 py-2 text-sm font-semibold transition duration-150 ${option === filter
-                          ? 'bg-slate-900 text-white border-slate-900'
-                          : 'border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-100'
+                        ? 'bg-slate-900 text-white border-slate-900'
+                        : 'border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-100'
                         }`}
                     >
                       {option}
@@ -465,8 +466,8 @@ function App() {
                             <td className="px-6 py-4 text-sm">
                               <span
                                 className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${item?.severity === 'High'
-                                    ? 'bg-rose-100 text-rose-700'
-                                    : 'bg-emerald-100 text-emerald-700'
+                                  ? 'bg-rose-100 text-rose-700'
+                                  : 'bg-emerald-100 text-emerald-700'
                                   }`}
                               >
                                 {item?.severity || 'Unknown'}

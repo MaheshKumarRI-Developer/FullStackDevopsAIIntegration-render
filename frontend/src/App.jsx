@@ -57,7 +57,11 @@ function App() {
     setError('')
 
     try {
-      const response = await axios.get(`${API_URL}/api/data`, { timeout: 15000 })
+      const response = await axios.get(`${API_URL}/api/data`, {
+        timeout: 15000,
+        headers: { 'Cache-Control': 'no-cache' },
+        params: { _t: Date.now() },
+      })
       console.log("Documents found:", response);
       const result = response.data
       if (Array.isArray(result)) {

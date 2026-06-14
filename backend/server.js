@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 
 const connectDB = require("./config/db");
+const Vulnerability = require("./src/models/Vulnerability");
 const groqProvider = require("./src/ai/providers/groqProvider");
 const ragService = require("./src/ai/rag/rag.service");
 const { getQdrantHealth } = require("./src/ai/retrieval/qdrant.client");
@@ -28,6 +29,28 @@ app.get("/", (req, res) => {
   res.json({
     message: "Backend running"
   });
+});
+
+// ── Vulnerability data endpoint ─────────────────────────────────────────
+app.get("/api/data", async (req, res) => {
+  // Prevent 304 "Not Modified" caching on Render / CDN proxies
+  res.set({
+    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+    Pragma: "no-cache",
+    Expires: "0",
+    "Surrogate-Control": "no-store",
+  });
+
+  try {
+    const vulnerabilities = await Vulnerability.find()
+      .sort({ timestamp: -1 })
+      .limit(200)
+      .lean();
+    res.json(vulnerabilities);
+  } catch (error) {
+    console.error("Error fetching vulnerability data:", error.message);
+    res.status(500).json({ error: "Failed to fetch vulnerability data." });
+  }
 });
 
 app.get("/api/ai/health", (req, res) => {
